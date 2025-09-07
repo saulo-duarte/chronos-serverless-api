@@ -3,19 +3,7 @@ name: "Terraform"
 on:
   workflow_call:
     inputs:
-      aws-assume-role-arn:
-        type: string
-        required: true
       aws-region:
-        type: string
-        required: true
-      aws-statefile-s3-bucket:
-        type: string
-        required: true
-      lambda-s3-bucket:
-        type: string
-        required: true
-      lambda-s3-key:
         type: string
         required: true
       lambda-function-name:
@@ -26,6 +14,15 @@ on:
         type: string
         required: false
         default: "/chronos-api/latest-version"
+    secrets:
+      aws-assume-role-arn:
+        required: true
+      aws-statefile-s3-bucket:
+        required: true
+      lambda-s3-bucket:
+        required: true
+      lambda-s3-key:
+        required: true
 
 jobs:
   terraform:
@@ -41,7 +38,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ inputs.aws-assume-role-arn }}
+          role-to-assume: ${{ secrets.aws-assume-role-arn }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ inputs.aws-region }}
 
@@ -61,7 +58,7 @@ jobs:
 
       - name: Upload Lambda to S3
         run: |
-          aws s3 cp infra/bootstrap.zip s3://${{ inputs.lambda-s3-bucket }}/${{ inputs.lambda-s3-key }} --region ${{ inputs.aws-region }}
+          aws s3 cp infra/bootstrap.zip s3://${{ secrets.lambda-s3-bucket }}/${{ secrets.lambda-s3-key }} --region ${{ inputs.aws-region }}
 
       - name: Read destroy configuration
         id: read-destroy-config
@@ -77,7 +74,7 @@ jobs:
       - name: Terraform Init
         run: |
           cd infra/terraform && terraform init \
-            -backend-config="bucket=${{ inputs.aws-statefile-s3-bucket }}" \
+            -backend-config="bucket=${{ secrets.aws-statefile-s3-bucket }}" \
             -backend-config="key=${{ github.event.repository.name }}.tfstate" \
             -backend-config="region=${{ inputs.aws-region }}"
 
@@ -89,8 +86,8 @@ jobs:
         run: cd infra/terraform && terraform destroy -auto-approve \
             -var="region=${{ inputs.aws-region }}" \
             -var="lambda_function_name=${{ inputs.lambda-function-name }}" \
-            -var="s3_bucket=${{ inputs.lambda-s3-bucket }}" \
-            -var="s3_key=${{ inputs.lambda-s3-key }}" \
+            -var="s3_bucket=${{ secrets.lambda-s3-bucket }}" \
+            -var="s3_key=${{ secrets.lambda-s3-key }}" \
             -var="parameter_store_key=${{ inputs.parameter-store-key }}"
 
       - name: Terraform Plan
@@ -99,8 +96,8 @@ jobs:
           terraform -chdir=infra/terraform plan -out="plan.tfplan" \
             -var="region=${{ inputs.aws-region }}" \
             -var="lambda_function_name=${{ inputs.lambda-function-name }}" \
-            -var="s3_bucket=${{ inputs.lambda-s3-bucket }}" \
-            -var="s3_key=${{ inputs.lambda-s3-key }}" \
+            -var="s3_bucket=${{ secrets.lambda-s3-bucket }}" \
+            -var="s3_key=${{ secrets.lambda-s3-key }}" \
             -var="parameter_store_key=${{ inputs.parameter-store-key }}"
 
       - name: Terraform Apply
