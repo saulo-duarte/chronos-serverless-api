@@ -63,7 +63,7 @@ jobs:
       - name: Read destroy configuration
         id: read-destroy-config
         run: |
-          DESTROY="$(jq -r '.destroy' ./infra/terraform/destroy-config.json)"
+          DESTROY="$(jq -r '.destroy' ./terraform/destroy-config.json)"
           echo "destroy=$(echo $DESTROY)" >> $GITHUB_OUTPUT
 
       - name: Setup Terraform
@@ -73,17 +73,17 @@ jobs:
 
       - name: Terraform Init
         run: |
-          cd infra/terraform && terraform init \
+          cd terraform && terraform init \
             -backend-config="bucket=${{ secrets.aws-statefile-s3-bucket }}" \
             -backend-config="key=${{ github.event.repository.name }}.tfstate" \
             -backend-config="region=${{ inputs.aws-region }}"
 
       - name: Terraform Validate
-        run: cd infra/terraform && terraform validate
+        run: cd terraform && terraform validate
 
       - name: Terraform Destroy
         if: steps.read-destroy-config.outputs.destroy == 'true'
-        run: cd infra/terraform && terraform destroy -auto-approve \
+        run: cd terraform && terraform destroy -auto-approve \
             -var="region=${{ inputs.aws-region }}" \
             -var="lambda_function_name=${{ inputs.lambda-function-name }}" \
             -var="s3_bucket=${{ secrets.lambda-s3-bucket }}" \
@@ -93,7 +93,7 @@ jobs:
       - name: Terraform Plan
         if: steps.read-destroy-config.outputs.destroy != 'true'
         run: |
-          terraform -chdir=infra/terraform plan -out="plan.tfplan" \
+          terraform -chdir=terraform plan -out="plan.tfplan" \
             -var="region=${{ inputs.aws-region }}" \
             -var="lambda_function_name=${{ inputs.lambda-function-name }}" \
             -var="s3_bucket=${{ secrets.lambda-s3-bucket }}" \
@@ -102,4 +102,4 @@ jobs:
 
       - name: Terraform Apply
         if: steps.read-destroy-config.outputs.destroy != 'true'
-        run: cd infra/terraform && terraform apply "plan.tfplan"
+        run: cd terraform && terraform apply "plan.tfplan"
