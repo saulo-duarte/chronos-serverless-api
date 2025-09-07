@@ -13,6 +13,12 @@ jobs:
   terraform:
     uses: ./.github/workflows/terraform.yml
     with:
+      aws-assume-role-arn: ${{ vars.AWS_ASSUME_ROLE_ARN }}
+      aws-region: ${{ vars.AWS_REGION }}
+      aws-statefile-s3-bucket: ${{ vars.AWS_STATEFILE_S3_BUCKET }}
+      lambda-s3-bucket: ${{ vars.LAMBDA_S3_BUCKET }}
+      lambda-s3-key: ${{ vars.LAMBDA_S3_KEY }}
+    secrets:
       aws-assume-role-arn: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
       aws-region: ${{ secrets.AWS_REGION }}
       aws-statefile-s3-bucket: ${{ secrets.AWS_STATEFILE_S3_BUCKET }}
