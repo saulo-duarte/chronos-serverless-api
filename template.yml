@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AWS SAM Template for running ChronosFunction locally.
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 128
+
+Resources:
+  ChronosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: bootstrap
+      Runtime: provided.al2
+      Environment:
+        Variables:
+          DATABASE_DSN: ''
+          JWT_SECRET: ''
+          CRYPTO_KEY: ''
+          LOCAL_TEST: 'true'
+          GOOGLE_CLIENT_ID: ''
+          GOOGLE_CLIENT_SECRET: ''
+          GOOGLE_REDIRECT_URL: ''
+      Events:
+        RegisterGet:
+          Type: Api
+          Properties:
+            Path: /register
+            Method: get
+        GoogleCallbackGet:
+          Type: Api
+          Properties:
+            Path: /google/callback
+            Method: get
+        LoginPost:
+          Type: Api
+          Properties:
+            Path: /login
+            Method: post
+        RefreshTokenPost:
+          Type: Api
+          Properties:
+            Path: /refresh
+            Method: post
