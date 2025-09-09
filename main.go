@@ -5,13 +5,19 @@ import (
 	"log"
 	"os"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	chiadapter "github.com/awslabs/aws-lambda-go-api-proxy/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/saulo-duarte/chronos-lambda/internal/auth"
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
+	"github.com/saulo-duarte/chronos-lambda/internal/router"
 	"github.com/saulo-duarte/chronos-lambda/internal/user"
 )
 
-func main() {
+var chiLambda *chiadapter.ChiLambdaV2
+
+func init() {
 	config.Init()
 	auth.Init()
 	config.InitCrypto()
@@ -24,7 +30,19 @@ func main() {
 
 	userRepo := user.NewRepository(config.DB)
 	userService := user.NewService(userRepo)
-	handler := user.NewHandler(userService).Handle
+	userHandler := user.NewHandler(userService)
 
-	lambda.Start(handler)
+	r := router.New(router.RouterConfig{
+		UserHandler: userHandler,
+	})
+
+	chiLambda = chiadapter.NewV2(r.(*chi.Mux))
+}
+
+func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
+	return chiLambda.ProxyWithContextV2(ctx, req)
+}
+
+func main() {
+	lambda.Start(Handler)
 }
