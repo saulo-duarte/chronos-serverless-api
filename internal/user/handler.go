@@ -1,21 +1,15 @@
 package user
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/saulo-duarte/chronos-lambda/internal/auth"
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
-	"github.com/sirupsen/logrus"
 )
 
-const (
-	FRONTEND_URL = "http://localhost:3001"
-)
+const FRONTEND_URL = "http://localhost:3001"
 
 type Handler struct {
 	service UserService
@@ -25,143 +19,116 @@ func NewHandler(s UserService) *Handler {
 	return &Handler{service: s}
 }
 
-func (h *Handler) Handle(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	headers := map[string]string{
-		"Access-Control-Allow-Origin":      FRONTEND_URL,
-		"Access-Control-Allow-Credentials": "true",
-		"Content-Type":                     "application/json",
-	}
-
-	if req.HTTPMethod == "OPTIONS" {
-		headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
-		headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
-		return events.APIGatewayProxyResponse{StatusCode: http.StatusOK, Headers: headers}, nil
-	}
-
-	log := config.WithContext(ctx).WithFields(logrus.Fields{"path": req.Path, "method": req.HTTPMethod})
-
-	switch req.Path {
-	case "/register":
-		if req.HTTPMethod == "GET" {
-			log.Info("Processando rota de registro")
-			return h.handleRegister(ctx, req, headers)
-		}
-	case "/google/callback":
-		if req.HTTPMethod == "GET" {
-			log.Info("Processando callback do Google")
-			return h.handleGoogleCallback(ctx, req, headers)
-		}
-	case "/login":
-		if req.HTTPMethod == "POST" {
-			log.Info("Processando login")
-			return h.handleLogin(ctx, req, headers)
-		}
-	case "/refresh":
-		if req.HTTPMethod == "POST" {
-			log.Info("Processando refresh token")
-			return h.handleRefreshToken(ctx, req, headers)
-		}
-	}
-	log.Warn("Rota não encontrada")
-	return config.NotFound(ctx, headers)
-}
-
-func (h *Handler) handleRegister(ctx context.Context, req events.APIGatewayProxyRequest, headers map[string]string) (events.APIGatewayProxyResponse, error) {
+func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	state := auth.GenerateState()
 	url := auth.GetGoogleAuthURL(state)
-
-	headers["Location"] = url
-	return events.APIGatewayProxyResponse{StatusCode: http.StatusFound, Headers: headers}, nil
+	http.Redirect(w, r, url, http.StatusFound)
 }
 
-func (h *Handler) handleGoogleCallback(ctx context.Context, req events.APIGatewayProxyRequest, headers map[string]string) (events.APIGatewayProxyResponse, error) {
-	log := config.WithContext(ctx)
+func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
+	log := config.WithContext(r.Context())
 
-	code, ok := req.QueryStringParameters["code"]
-	if !ok || code == "" {
+	code := r.URL.Query().Get("code")
+	if code == "" {
 		log.Error("Código de autorização não encontrado")
-		return config.BadRequest(ctx, "code not found", headers)
+		http.Error(w, "code not found", http.StatusBadRequest)
+		return
 	}
 
-	_, jwtToken, err := h.service.HandleGoogleCallback(ctx, code)
+	_, jwtToken, err := h.service.HandleGoogleCallback(r.Context(), code)
 	if err != nil {
 		log.WithError(err).Error("Falha ao lidar com o callback do Google")
-		return config.InternalError(ctx, headers)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
 	}
 
-	headers["Set-Cookie"] = auth.NewJWTCookie(jwtToken, 24*time.Hour)
-	headers["Location"] = FRONTEND_URL
-	return events.APIGatewayProxyResponse{
-		StatusCode: http.StatusFound,
-		Headers:    headers,
-	}, nil
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.JWT_COOKIE_NAME,
+		Value:    jwtToken,
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   int((24 * time.Hour).Seconds()),
+	})
+
+	http.Redirect(w, r, FRONTEND_URL, http.StatusFound)
 }
 
-func (h *Handler) handleLogin(ctx context.Context, req events.APIGatewayProxyRequest, headers map[string]string) (events.APIGatewayProxyResponse, error) {
-	log := config.WithContext(ctx)
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	log := config.WithContext(r.Context())
 
 	var payload struct {
 		ProviderID string `json:"provider_id"`
 	}
-
-	if err := json.Unmarshal([]byte(req.Body), &payload); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		log.WithError(err).Error("Corpo da requisição inválido")
-		return config.BadRequest(ctx, "invalid request body", headers)
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
 	}
-
 	if payload.ProviderID == "" {
-		log.Warn("provider_id não fornecido")
-		return config.BadRequest(ctx, "provider_id is required", headers)
+		http.Error(w, "provider_id is required", http.StatusBadRequest)
+		return
 	}
 
-	user, jwtToken, refreshToken, err := h.service.Login(ctx, payload.ProviderID)
+	user, jwtToken, refreshToken, err := h.service.Login(r.Context(), payload.ProviderID)
 	if err != nil {
 		if err == ErrUserNotFound {
-			log.Warn("Usuário não encontrado durante o login")
-			return config.Unauthorized(ctx, "user not found", headers)
+			http.Error(w, "user not found", http.StatusUnauthorized)
+			return
 		}
-		log.WithError(err).Error("Erro interno durante o login")
-		return config.InternalError(ctx, headers)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
 	}
 
-	headers["Set-Cookie"] = auth.NewJWTCookie(jwtToken, 24*time.Hour)
-	headers["Set-Cookie"] += fmt.Sprintf(", %s", auth.NewRefreshTokenCookie(refreshToken, 14*24*time.Hour))
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.JWT_COOKIE_NAME,
+		Value:    jwtToken,
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   int((24 * time.Hour).Seconds()),
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.REFRESH_TOKEN_COOKIE_NAME,
+		Value:    refreshToken,
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   int((14 * 24 * time.Hour).Seconds()),
+	})
 
-	return config.APIGateway(ctx, http.StatusOK, map[string]interface{}{"user": user.ToResponse(), "message": "Login successful"}, headers)
+	config.JSON(w, http.StatusOK, map[string]any{
+		"user":    user.ToResponse(),
+		"message": "Login successful",
+	})
 }
 
-func (h *Handler) handleRefreshToken(ctx context.Context, req events.APIGatewayProxyRequest, headers map[string]string) (events.APIGatewayProxyResponse, error) {
-	log := config.WithContext(ctx)
-	refreshToken, err := getCookie(req.Headers, auth.REFRESH_TOKEN_COOKIE_NAME)
+func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	log := config.WithContext(r.Context())
+
+	cookie, err := r.Cookie(auth.REFRESH_TOKEN_COOKIE_NAME)
 	if err != nil {
-		log.WithError(err).Warn("Token de atualização não encontrado no cookie")
-		return config.Unauthorized(ctx, "refresh token required", headers)
+		config.JSON(w, http.StatusUnauthorized, map[string]string{
+			"error": "refresh token required",
+		})
+		return
 	}
 
-	newJWT, err := h.service.RefreshToken(ctx, refreshToken)
+	newJWT, err := h.service.RefreshToken(r.Context(), cookie.Value)
 	if err != nil {
 		log.WithError(err).Error("Falha ao atualizar o token")
-		return config.Unauthorized(ctx, "failed to refresh token", headers)
+		config.JSON(w, http.StatusUnauthorized, map[string]string{
+			"error": "failed to refresh token",
+		})
+		return
 	}
-	headers["Set-Cookie"] = auth.NewJWTCookie(newJWT, 24*time.Hour)
 
-	return config.APIGateway(ctx, http.StatusOK, map[string]string{"message": "token refreshed successfully"}, headers)
-}
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.JWT_COOKIE_NAME,
+		Value:    newJWT,
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   int((24 * time.Hour).Seconds()),
+	})
 
-func getCookie(headers map[string]string, name string) (string, error) {
-	cookieHeader, ok := headers["Cookie"]
-	if !ok {
-		cookieHeader, ok = headers["cookie"]
-		if !ok {
-			return "", fmt.Errorf("cookie header not found")
-		}
-	}
-	req := http.Request{Header: http.Header{"Cookie": {cookieHeader}}}
-	cookies := req.Cookies()
-	for _, c := range cookies {
-		if c.Name == name {
-			return c.Value, nil
-		}
-	}
-	return "", fmt.Errorf("cookie not found: %s", name)
+	config.JSON(w, http.StatusOK, map[string]string{
+		"message": "token refreshed successfully",
+	})
 }
