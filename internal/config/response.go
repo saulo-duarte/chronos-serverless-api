@@ -44,3 +44,9 @@ func Unauthorized(ctx context.Context, msg string, headers map[string]string) (e
 func InternalError(ctx context.Context, headers map[string]string) (events.APIGatewayProxyResponse, error) {
 	return APIGateway(ctx, http.StatusInternalServerError, map[string]string{"error": "internal server error"}, headers)
 }
+
+func JSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
+}
