@@ -45,3 +45,29 @@ Resources:
           Properties:
             Path: /refresh
             Method: post
+
+        CreateProject:
+          Type: Api
+          Properties:
+            Path: /projects
+            Method: post
+        ListProjects:
+          Type: Api
+          Properties:
+            Path: /projects
+            Method: get
+        GetProject:
+          Type: Api
+          Properties:
+            Path: /projects/{id}
+            Method: get
+        UpdateProject:
+          Type: Api
+          Properties:
+            Path: /projects/{id}
+            Method: put
+        DeleteProject:
+          Type: Api
+          Properties:
+            Path: /projects/{id}
+            Method: delete
