@@ -1,35 +1,81 @@
-resource "aws_apigatewayv2_api" "lambda_api_v2" {
-  name          = "${var.lambda_function_name}-api-v2"
-  protocol_type = "HTTP"
+resource "aws_api_gateway_rest_api" "lambda_api" {
+  name = "${var.lambda_function_name}-api"
 }
 
-resource "aws_apigatewayv2_integration" "lambda_integration_v2" {
-  api_id             = aws_apigatewayv2_api.lambda_api_v2.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_lambda_function.go_lambda.invoke_arn
-  integration_method = "POST"
+resource "aws_api_gateway_resource" "proxy" {
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+  parent_id   = aws_api_gateway_rest_api.lambda_api.root_resource_id
+  path_part   = "{proxy+}"
 }
 
-resource "aws_apigatewayv2_route" "lambda_route_proxy" {
-  api_id    = aws_apigatewayv2_api.lambda_api_v2.id
-  route_key = "ANY /{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration_v2.id}"
+resource "aws_api_gateway_method" "root_method" {
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  resource_id   = aws_api_gateway_rest_api.lambda_api.root_resource_id
+  http_method   = "ANY"
+  authorization = "NONE"
 }
 
-resource "aws_apigatewayv2_stage" "lambda_stage_v2" {
-  api_id      = aws_apigatewayv2_api.lambda_api_v2.id
-  name        = "$default"
-  auto_deploy = true
+resource "aws_api_gateway_integration" "root_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.lambda_api.id
+  resource_id             = aws_api_gateway_rest_api.lambda_api.root_resource_id
+  http_method             = aws_api_gateway_method.root_method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.go_lambda.invoke_arn
 }
 
-resource "aws_lambda_permission" "api_gateway_v2" {
-  statement_id  = "AllowExecutionFromAPIGatewayV2"
+resource "aws_api_gateway_method" "proxy_method" {
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  resource_id   = aws_api_gateway_resource.proxy.id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "lambda_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.lambda_api.id
+  resource_id             = aws_api_gateway_resource.proxy.id
+  http_method             = aws_api_gateway_method.proxy_method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.go_lambda.invoke_arn
+}
+
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.go_lambda.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.lambda_api_v2.execution_arn}/*"
+  source_arn    = "arn:aws:execute-api:${var.region}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.lambda_api.id}/*/*"
 }
 
-output "lambda_api_v2_endpoint" {
-  value = aws_apigatewayv2_api.lambda_api_v2.api_endpoint
+resource "aws_api_gateway_deployment" "lambda_deployment" {
+  depends_on = [
+    aws_api_gateway_integration.lambda_integration,
+    aws_api_gateway_integration.root_integration
+  ]
+  rest_api_id = aws_api_gateway_rest_api.lambda_api.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.proxy.id,
+      aws_api_gateway_method.proxy_method.id,
+      aws_api_gateway_integration.lambda_integration.id,
+      aws_api_gateway_method.root_method.id,
+      aws_api_gateway_integration.root_integration.id
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_api_gateway_stage" "lambda_stage" {
+  deployment_id = aws_api_gateway_deployment.lambda_deployment.id
+  rest_api_id   = aws_api_gateway_rest_api.lambda_api.id
+  stage_name    = "prod"
+}
+
+output "lambda_api_endpoint" {
+  value = "https://${aws_api_gateway_rest_api.lambda_api.id}.execute-api.${var.region}.amazonaws.com/prod/"
 }
