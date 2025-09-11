@@ -24,6 +24,6 @@ output "lambda_function_name" {
   value = aws_lambda_function.go_lambda.function_name
 }
 
-output "api_gateway_invoke_url" {
-  value = "https://${aws_api_gateway_rest_api.lambda_api.id}.execute-api.${var.region}.amazonaws.com/prod/"
+output "lambda_api_v2_endpoint" {
+  value = aws_apigatewayv2_api.lambda_api_v2.api_endpoint
 }
