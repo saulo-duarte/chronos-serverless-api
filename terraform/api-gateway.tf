@@ -10,12 +10,6 @@ resource "aws_apigatewayv2_integration" "lambda_integration_v2" {
   integration_method = "POST"
 }
 
-resource "aws_apigatewayv2_route" "lambda_route_get" {
-  api_id    = aws_apigatewayv2_api.lambda_api_v2.id
-  route_key = "GET /register"
-  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration_v2.id}"
-}
-
 resource "aws_apigatewayv2_route" "lambda_route_proxy" {
   api_id    = aws_apigatewayv2_api.lambda_api_v2.id
   route_key = "ANY /{proxy+}"
