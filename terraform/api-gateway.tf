@@ -50,8 +50,8 @@ resource "aws_lambda_permission" "api_gateway" {
 
 resource "aws_api_gateway_deployment" "lambda_deployment" {
   depends_on = [
-    aws_api_gateway_integration.lambda_integration,
-    aws_api_gateway_integration.root_integration
+    aws_api_gateway_integration.root_integration,
+    aws_api_gateway_integration.lambda_integration
   ]
   rest_api_id = aws_api_gateway_rest_api.lambda_api.id
 
