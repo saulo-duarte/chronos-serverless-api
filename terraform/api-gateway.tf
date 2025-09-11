@@ -18,7 +18,7 @@ resource "aws_apigatewayv2_route" "lambda_route_proxy" {
 
 resource "aws_apigatewayv2_stage" "lambda_stage_v2" {
   api_id      = aws_apigatewayv2_api.lambda_api_v2.id
-  name        = "prod"
+  name        = "$default"
   auto_deploy = true
 }
 
