@@ -40,9 +40,19 @@ func init() {
 }
 
 func Handler(ctx context.Context, req events.APIGatewayV2HTTPRequest) (events.APIGatewayV2HTTPResponse, error) {
-	return chiLambda.ProxyWithContextV2(ctx, req)
+	log.Printf("DEBUG: Incoming request: %+v\n", req)
+
+	resp, err := chiLambda.ProxyWithContextV2(ctx, req)
+	if err != nil {
+		log.Printf("ERROR: ProxyWithContextV2 returned an error: %v\n", err)
+	} else {
+		log.Printf("DEBUG: Response generated: %+v\n", resp)
+	}
+
+	return resp, err
 }
 
 func main() {
+	log.Println("Lambda starting...")
 	lambda.Start(Handler)
 }
