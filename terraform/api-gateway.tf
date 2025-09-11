@@ -30,7 +30,3 @@ resource "aws_lambda_permission" "api_gateway_v2" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.lambda_api_v2.execution_arn}/*/*"
 }
-
-output "lambda_api_v2_endpoint" {
-  value = aws_apigatewayv2_api.lambda_api_v2.api_endpoint
-}
