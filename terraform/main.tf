@@ -25,5 +25,5 @@ output "lambda_function_name" {
 }
 
 output "api_gateway_invoke_url" {
-  value = "${aws_api_gateway_deployment.lambda_deployment.invoke_url}${aws_api_gateway_stage.lambda_stage.stage_name}/"
+  value = aws_apigatewayv2_api.lambda_api_v2.api_endpoint
 }
