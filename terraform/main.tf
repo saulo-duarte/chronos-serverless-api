@@ -25,5 +25,5 @@ output "lambda_function_name" {
 }
 
 output "api_gateway_invoke_url" {
-  value = aws_apigatewayv2_api.lambda_api_v2.api_endpoint
+  value = "https://${aws_api_gateway_rest_api.lambda_api.id}.execute-api.${var.region}.amazonaws.com/prod/"
 }
