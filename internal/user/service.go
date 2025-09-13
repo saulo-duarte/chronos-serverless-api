@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,9 +38,11 @@ func (s *userService) HandleGoogleCallback(ctx context.Context, code string) (*U
 		log.WithError(err).Error("Falha no callback de autenticação do Google")
 		return nil, "", err
 	}
-	log.WithField("provider_id", authResult.ProviderID).Info("Callback do Google processado com sucesso")
 
-	user, err := s.repo.GetByProviderID(authResult.ProviderID)
+	providerID := strings.TrimPrefix(authResult.ProviderID, "google-")
+	log.WithField("provider_id", providerID).Info("Callback do Google processado com sucesso")
+
+	user, err := s.repo.GetByProviderID(providerID)
 	if err != nil && !errors.Is(err, ErrUserNotFound) {
 		log.WithError(err).Error("Erro ao buscar usuário por provider ID")
 		return nil, "", err
@@ -49,7 +52,7 @@ func (s *userService) HandleGoogleCallback(ctx context.Context, code string) (*U
 		log.Info("Usuário não encontrado, criando novo usuário")
 		user = &User{
 			ID:                          uuid.New(),
-			ProviderID:                  authResult.ProviderID,
+			ProviderID:                  providerID,
 			Username:                    authResult.Username,
 			Email:                       authResult.Email,
 			AvatarURL:                   authResult.Picture,
