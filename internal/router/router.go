@@ -7,12 +7,14 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/saulo-duarte/chronos-lambda/internal/project"
+	"github.com/saulo-duarte/chronos-lambda/internal/task"
 	"github.com/saulo-duarte/chronos-lambda/internal/user"
 )
 
 type RouterConfig struct {
 	UserHandler    *user.Handler
 	ProjectHandler *project.Handler
+	TaskHandler    *task.Handler
 }
 
 func New(cfg RouterConfig) http.Handler {
@@ -23,14 +25,9 @@ func New(cfg RouterConfig) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Group(func(r chi.Router) {
-		r.Get("/register", cfg.UserHandler.Register)
-		r.Get("/google/callback", cfg.UserHandler.GoogleCallback)
-		r.Post("/login", cfg.UserHandler.Login)
-		r.Post("/refresh", cfg.UserHandler.RefreshToken)
-	})
-
-	project.RegisterRoutes(r, cfg.ProjectHandler)
+	r.Mount("/users", user.Routes(cfg.UserHandler))
+	r.Mount("/projects", project.Routes(cfg.ProjectHandler))
+	r.Mount("/tasks", task.Routes(cfg.TaskHandler))
 
 	return r
 }
