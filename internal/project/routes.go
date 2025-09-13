@@ -1,18 +1,22 @@
 package project
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/saulo-duarte/chronos-lambda/internal/auth"
 )
 
-func RegisterRoutes(r chi.Router, h *Handler) {
-	r.Group(func(r chi.Router) {
-		r.Use(auth.AuthMiddleware)
+func Routes(h *Handler) http.Handler {
+	r := chi.NewRouter()
 
-		r.Post("/projects", h.CreateProject)
-		r.Get("/projects", h.ListProjects)
-		r.Get("/projects/{id}", h.GetProject)
-		r.Put("/projects/{id}", h.UpdateProject)
-		r.Delete("/projects/{id}", h.DeleteProject)
-	})
+	r.Use(auth.AuthMiddleware)
+
+	r.Post("/", h.CreateProject)
+	r.Get("/", h.ListProjects)
+	r.Get("/{id}", h.GetProject)
+	r.Put("/{id}", h.UpdateProject)
+	r.Delete("/{id}", h.DeleteProject)
+
+	return r
 }
