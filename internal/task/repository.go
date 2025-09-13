@@ -7,13 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrNotFound = errors.New("task not found")
+
 type TaskRepository interface {
 	Create(t *Task) error
-	GetByID(id string) (*Task, error)
+	GetByID(id uuid.UUID) (*Task, error)
 	ListByUser(userID uuid.UUID) ([]*Task, error)
 	ListByProject(projectID uuid.UUID) ([]*Task, error)
 	Update(t *Task) error
-	Delete(id string) error
+	Delete(id uuid.UUID) error
 }
 
 type taskRepository struct {
@@ -28,11 +30,11 @@ func (r *taskRepository) Create(t *Task) error {
 	return r.db.Create(t).Error
 }
 
-func (r *taskRepository) GetByID(id string) (*Task, error) {
+func (r *taskRepository) GetByID(id uuid.UUID) (*Task, error) {
 	var t Task
 	if err := r.db.First(&t, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
@@ -56,9 +58,9 @@ func (r *taskRepository) ListByProject(projectID uuid.UUID) ([]*Task, error) {
 }
 
 func (r *taskRepository) Update(t *Task) error {
-	return r.db.Save(t).Error
+	return r.db.Model(&Task{}).Where("id = ?", t.ID).Updates(t).Error
 }
 
-func (r *taskRepository) Delete(id string) error {
+func (r *taskRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&Task{}, "id = ?", id).Error
 }
