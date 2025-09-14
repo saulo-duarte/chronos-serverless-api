@@ -102,8 +102,8 @@ func (s *studySubjectService) UpdateStudySubject(ctx context.Context, subj *Stud
 
 	if existing.UserID.String() != claims.UserID {
 		log.WithFields(logrus.Fields{
-			"study_subject_id": existing.ID,
-			"user_id":          claims.UserID,
+			"subject_id": existing.ID,
+			"user_id":    claims.UserID,
 		}).Warn("User attempted to update another user's study subject")
 		return nil, ErrUnauthorized
 	}
@@ -143,8 +143,8 @@ func (s *studySubjectService) DeleteStudySubject(ctx context.Context, id string)
 
 	if subject.UserID.String() != claims.UserID {
 		log.WithFields(logrus.Fields{
-			"study_subject_id": subject.ID,
-			"user_id":          claims.UserID,
+			"subject_id": subject.ID,
+			"user_id":    claims.UserID,
 		}).Warn("User attempted to delete another user's study subject")
 		return ErrUnauthorized
 	}
