@@ -23,6 +23,7 @@ func init() {
 		ProjectHandler:      c.ProjectContainer.Handler,
 		TaskHandler:         c.TaskContainer.Handler,
 		StudySubjectHandler: c.StudySubjectContainer.Handler,
+		StudyTopicHandler:   c.StudyTopicContainer.Handler,
 	})
 
 	chiLambda = chiadapter.NewV2(r.(*chi.Mux))

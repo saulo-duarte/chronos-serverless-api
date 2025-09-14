@@ -9,6 +9,7 @@ import (
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
 	"github.com/saulo-duarte/chronos-lambda/internal/project"
 	studysubject "github.com/saulo-duarte/chronos-lambda/internal/study_subject"
+	studytopic "github.com/saulo-duarte/chronos-lambda/internal/study_topic"
 	"github.com/saulo-duarte/chronos-lambda/internal/task"
 	"github.com/saulo-duarte/chronos-lambda/internal/user"
 )
@@ -18,6 +19,7 @@ type Container struct {
 	ProjectContainer      *project.ProjectContainer
 	TaskContainer         *task.TaskContainer
 	StudySubjectContainer *studysubject.StudySubjectContainer
+	StudyTopicContainer   *studytopic.StudyTopicContainer
 }
 
 func New() *Container {
@@ -39,10 +41,13 @@ func New() *Container {
 
 	studySubjectContainer := studysubject.NewStudySubjectContainer(config.DB)
 
+	studyTopicContainer := studytopic.NewStudyTopicContainer(config.DB)
+
 	return &Container{
 		UserContainer:         userContainer,
 		ProjectContainer:      projectContainer,
 		TaskContainer:         taskContainer,
 		StudySubjectContainer: studySubjectContainer,
+		StudyTopicContainer:   studyTopicContainer,
 	}
 }
