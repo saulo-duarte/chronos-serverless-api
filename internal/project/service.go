@@ -20,7 +20,7 @@ type ProjectService interface {
 	CreateProject(ctx context.Context, p *Project) (*Project, error)
 	GetProjectByID(ctx context.Context, id string) (*Project, error)
 	ListProjectsByUser(ctx context.Context) ([]*Project, error)
-	UpdateProject(ctx context.Context, p *Project) (*Project, error)
+	UpdateProject(ctx context.Context, id string, dto *UpdateProjectDTO) (*Project, error)
 	DeleteProject(ctx context.Context, id string) error
 }
 
@@ -39,6 +39,15 @@ func (s *projectService) CreateProject(ctx context.Context, p *Project) (*Projec
 	if err != nil {
 		log.WithError(err).Warn("Tentativa de criar projeto sem autenticação")
 		return nil, ErrUnauthorized
+	}
+
+	if p.Title == "" {
+		log.Warn("Título do projeto não pode ser vazio")
+		return nil, errors.New("project title cannot be empty")
+	}
+
+	if p.Status == "" {
+		p.Status = ProjectStatus(NOT_INITIALIZED)
 	}
 
 	p.ID = uuid.New()
@@ -112,7 +121,7 @@ func (s *projectService) ListProjectsByUser(ctx context.Context) ([]*Project, er
 	return projects, nil
 }
 
-func (s *projectService) UpdateProject(ctx context.Context, p *Project) (*Project, error) {
+func (s *projectService) UpdateProject(ctx context.Context, id string, dto *UpdateProjectDTO) (*Project, error) {
 	log := config.WithContext(ctx)
 
 	claims, err := auth.GetUserClaimsFromContext(ctx)
@@ -121,7 +130,11 @@ func (s *projectService) UpdateProject(ctx context.Context, p *Project) (*Projec
 		return nil, ErrUnauthorized
 	}
 
-	existing, err := s.repo.GetByID(p.ID.String())
+	if err := dto.Validate(); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.repo.GetByID(id)
 	if err != nil {
 		log.WithError(err).Error("Erro ao buscar projeto para atualização")
 		return nil, err
@@ -138,8 +151,9 @@ func (s *projectService) UpdateProject(ctx context.Context, p *Project) (*Projec
 		return nil, ErrUnauthorized
 	}
 
-	existing.Title = p.Title
-	existing.Description = p.Description
+	existing.Title = dto.Title
+	existing.Description = dto.Description
+
 	existing.UpdatedAt = time.Now()
 
 	if err := s.repo.Update(existing); err != nil {

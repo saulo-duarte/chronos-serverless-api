@@ -97,16 +97,20 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var payload Project
+	var payload UpdateProjectDTO
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		log.WithError(err).Error("Corpo da requisição inválido")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	payload.ID = uuid.MustParse(projectID)
+	if err := payload.Validate(); err != nil {
+		log.WithError(err).Warn("Payload inválido")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	project, err := h.service.UpdateProject(r.Context(), &payload)
+	project, err := h.service.UpdateProject(r.Context(), projectID, &payload)
 	if err != nil {
 		switch err {
 		case ErrProjectNotFound:
