@@ -7,14 +7,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/saulo-duarte/chronos-lambda/internal/project"
+	studysubject "github.com/saulo-duarte/chronos-lambda/internal/study_subject"
 	"github.com/saulo-duarte/chronos-lambda/internal/task"
 	"github.com/saulo-duarte/chronos-lambda/internal/user"
 )
 
 type RouterConfig struct {
-	UserHandler    *user.Handler
-	ProjectHandler *project.Handler
-	TaskHandler    *task.Handler
+	UserHandler         *user.Handler
+	ProjectHandler      *project.Handler
+	TaskHandler         *task.Handler
+	StudySubjectHandler *studysubject.Handler
 }
 
 func New(cfg RouterConfig) http.Handler {
@@ -28,6 +30,7 @@ func New(cfg RouterConfig) http.Handler {
 	r.Mount("/users", user.Routes(cfg.UserHandler))
 	r.Mount("/projects", project.Routes(cfg.ProjectHandler))
 	r.Mount("/tasks", task.Routes(cfg.TaskHandler))
+	r.Mount("/study-subjects", studysubject.Routes(cfg.StudySubjectHandler))
 
 	return r
 }

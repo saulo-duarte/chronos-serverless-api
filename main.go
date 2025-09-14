@@ -19,9 +19,10 @@ func init() {
 	c := container.New()
 
 	r := router.New(router.RouterConfig{
-		UserHandler:    c.UserContainer.Handler,
-		ProjectHandler: c.ProjectContainer.Handler,
-		TaskHandler:    c.TaskContainer.Handler,
+		UserHandler:         c.UserContainer.Handler,
+		ProjectHandler:      c.ProjectContainer.Handler,
+		TaskHandler:         c.TaskContainer.Handler,
+		StudySubjectHandler: c.StudySubjectContainer.Handler,
 	})
 
 	chiLambda = chiadapter.NewV2(r.(*chi.Mux))
