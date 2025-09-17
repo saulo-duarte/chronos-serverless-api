@@ -7,15 +7,18 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrNotFound = errors.New("task not found")
+var (
+	ErrNotFound = errors.New("task not found")
+)
 
 type TaskRepository interface {
 	Create(t *Task) error
-	GetByID(id uuid.UUID) (*Task, error)
-	ListByUser(userID uuid.UUID) ([]*Task, error)
-	ListByProject(projectID uuid.UUID) ([]*Task, error)
+	FindByIdAndUserId(id, userId uuid.UUID) (*Task, error)
+	ListByUser(userId uuid.UUID) ([]*Task, error)
+	ListByProjectAndUser(projectId, userId uuid.UUID) ([]*Task, error)
+	ListByStudyTopicAndUser(topicId, userId uuid.UUID) ([]*Task, error)
 	Update(t *Task) error
-	Delete(id uuid.UUID) error
+	Delete(id, userId uuid.UUID) error
 }
 
 type taskRepository struct {
@@ -30,9 +33,9 @@ func (r *taskRepository) Create(t *Task) error {
 	return r.db.Create(t).Error
 }
 
-func (r *taskRepository) GetByID(id uuid.UUID) (*Task, error) {
+func (r *taskRepository) FindByIdAndUserId(id, userId uuid.UUID) (*Task, error) {
 	var t Task
-	if err := r.db.First(&t, "id = ?", id).Error; err != nil {
+	if err := r.db.Where("id = ? AND user_id = ?", id, userId).First(&t).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
@@ -41,26 +44,38 @@ func (r *taskRepository) GetByID(id uuid.UUID) (*Task, error) {
 	return &t, nil
 }
 
-func (r *taskRepository) ListByUser(userID uuid.UUID) ([]*Task, error) {
+func (r *taskRepository) ListByUser(userId uuid.UUID) ([]*Task, error) {
 	var tasks []*Task
-	if err := r.db.Where("user_id = ?", userID).Find(&tasks).Error; err != nil {
+	if err := r.db.Preload("Project").Preload("StudyTopic").Where("user_id = ?", userId).Find(&tasks).Error; err != nil {
 		return nil, err
 	}
 	return tasks, nil
 }
 
-func (r *taskRepository) ListByProject(projectID uuid.UUID) ([]*Task, error) {
+func (r *taskRepository) ListByProjectAndUser(projectId, userId uuid.UUID) ([]*Task, error) {
 	var tasks []*Task
-	if err := r.db.Where("project_id = ?", projectID).Find(&tasks).Error; err != nil {
+	if err := r.db.Preload("Project").Preload("StudyTopic").Where("project_id = ? AND user_id = ?", projectId, userId).Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func (r *taskRepository) ListByStudyTopicAndUser(topicId, userId uuid.UUID) ([]*Task, error) {
+	var tasks []*Task
+	if err := r.db.Preload("Project").Preload("StudyTopic").Where("study_topic_id = ? AND user_id = ?", topicId, userId).Find(&tasks).Error; err != nil {
 		return nil, err
 	}
 	return tasks, nil
 }
 
 func (r *taskRepository) Update(t *Task) error {
-	return r.db.Model(&Task{}).Where("id = ?", t.ID).Updates(t).Error
+	return r.db.Save(t).Error
 }
 
-func (r *taskRepository) Delete(id uuid.UUID) error {
-	return r.db.Delete(&Task{}, "id = ?", id).Error
+func (r *taskRepository) Delete(id, userId uuid.UUID) error {
+	result := r.db.Where("id = ? AND user_id = ?", id, userId).Delete(&Task{})
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return result.Error
 }
