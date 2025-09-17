@@ -16,7 +16,7 @@ type StudyTopic struct {
 	UserID         uuid.UUID                 `gorm:"column:user_id;not null" json:"user_id"`
 	User           user.User                 `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-" gorm:"-"`
 	StudySubjectID uuid.UUID                 `gorm:"column:subject_id;not null" json:"subject_id"`
-	StudySubject   studysubject.StudySubject `gorm:"foreignKey:StudySubjectID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-" gorm:"-"` // Adicione gorm:"-" aqui também
+	StudySubject   studysubject.StudySubject `gorm:"foreignKey:StudySubjectID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-" gorm:"-"`
 	CreatedAt      time.Time                 `json:"created_at"`
 	UpdatedAt      time.Time                 `json:"updated_at"`
 }
