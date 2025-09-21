@@ -82,7 +82,7 @@ func HandleGoogleCallback(ctx context.Context, code string) (*AuthResult, error)
 	}
 
 	return &AuthResult{
-		ProviderID:   "google-" + userInfo.ID,
+		ProviderID:   userInfo.ID,
 		Username:     userInfo.Name,
 		Email:        userInfo.Email,
 		Picture:      userInfo.Picture,
