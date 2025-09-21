@@ -7,6 +7,7 @@ import (
 
 	"github.com/saulo-duarte/chronos-lambda/internal/auth"
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
+	"github.com/saulo-duarte/chronos-lambda/internal/googleservice"
 	"github.com/saulo-duarte/chronos-lambda/internal/project"
 	studysubject "github.com/saulo-duarte/chronos-lambda/internal/study_subject"
 	studytopic "github.com/saulo-duarte/chronos-lambda/internal/study_topic"
@@ -34,14 +35,18 @@ func New() *Container {
 	}
 
 	userContainer := user.NewUserContainer(config.DB)
-
 	projectContainer := project.NewProjectContainer(config.DB)
-
-	taskContainer := task.NewTaskContainer(config.DB)
-
 	studySubjectContainer := studysubject.NewStudySubjectContainer(config.DB)
-
 	studyTopicContainer := studytopic.NewStudyTopicContainer(config.DB)
+
+	googleEventHandler := googleservice.NewGoogleEventHandler(auth.GoogleOauthConfig)
+
+	taskContainer := task.NewTaskContainer(
+		config.DB,
+		projectContainer.Service,
+		studyTopicContainer.Repo,
+		googleEventHandler,
+	)
 
 	return &Container{
 		UserContainer:         userContainer,

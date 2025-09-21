@@ -7,6 +7,7 @@ import (
 
 type StudyTopicContainer struct {
 	Handler *Handler
+	Repo    StudyTopicRepository
 }
 
 func NewStudyTopicContainer(db *gorm.DB) *StudyTopicContainer {
@@ -17,5 +18,6 @@ func NewStudyTopicContainer(db *gorm.DB) *StudyTopicContainer {
 
 	return &StudyTopicContainer{
 		Handler: handler,
+		Repo:    repo,
 	}
 }

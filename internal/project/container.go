@@ -4,6 +4,7 @@ import "gorm.io/gorm"
 
 type ProjectContainer struct {
 	Handler *Handler
+	Service ProjectService
 }
 
 func NewProjectContainer(db *gorm.DB) *ProjectContainer {
@@ -13,5 +14,6 @@ func NewProjectContainer(db *gorm.DB) *ProjectContainer {
 
 	return &ProjectContainer{
 		Handler: handler,
+		Service: service,
 	}
 }
