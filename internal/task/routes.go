@@ -8,11 +8,11 @@ func Routes(h *Handler) chi.Router {
 	r := chi.NewRouter()
 
 	r.Post("/", h.CreateTask)
-	r.Get("/", h.GetTask)
+	r.Get("/{taskID}", h.GetTask)
 	r.Get("/user", h.ListTasksByUser)
-	r.Get("/project", h.ListTasksByProject)
-	r.Put("/", h.UpdateTask)
-	r.Delete("/", h.DeleteTask)
+	r.Get("/project/{projectID}", h.ListTasksByProject)
+	r.Put("/{taskID}", h.UpdateTask)
+	r.Delete("/{taskID}", h.DeleteTask)
 
 	return r
 }

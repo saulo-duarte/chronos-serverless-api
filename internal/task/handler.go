@@ -2,8 +2,10 @@ package task
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
 )
@@ -39,17 +41,11 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
 
-	var payload struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.ID == "" {
-		http.Error(w, "id is required", http.StatusBadRequest)
-		return
-	}
+	id := chi.URLParam(r, "taskID")
 
-	task, err := h.service.GetTaskByID(r.Context(), payload.ID)
+	task, err := h.service.FindByID(r.Context(), id)
 	if err != nil {
-		if err == ErrTaskNotFound {
+		if errors.Is(err, ErrTaskNotFound) {
 			http.Error(w, "task not found", http.StatusNotFound)
 			return
 		}
@@ -64,15 +60,7 @@ func (h *Handler) GetTask(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListTasksByUser(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
 
-	var payload struct {
-		UserID string `json:"user_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.UserID == "" {
-		http.Error(w, "user_id is required", http.StatusBadRequest)
-		return
-	}
-
-	tasks, err := h.service.ListTaskByUser(r.Context(), payload.UserID)
+	tasks, err := h.service.FindAllByUser(r.Context())
 	if err != nil {
 		log.WithError(err).Error("Erro ao listar tasks por usuário")
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -85,16 +73,14 @@ func (h *Handler) ListTasksByUser(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListTasksByProject(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
 
-	var payload struct {
-		ProjectID string `json:"project_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.ProjectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
-		return
-	}
+	projectID := chi.URLParam(r, "projectID")
 
-	tasks, err := h.service.ListTaskByProject(r.Context(), payload.ProjectID)
+	tasks, err := h.service.FindAllByProjectID(r.Context(), projectID)
 	if err != nil {
+		if errors.Is(err, ErrProjectNotFound) {
+			http.Error(w, "project not found", http.StatusNotFound)
+			return
+		}
 		log.WithError(err).Error("Erro ao listar tasks por projeto")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
@@ -106,15 +92,19 @@ func (h *Handler) ListTasksByProject(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
 
+	id := chi.URLParam(r, "taskID")
+
 	var payload Task
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.ID == uuid.Nil {
-		http.Error(w, "id is required", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		log.WithError(err).Error("Corpo da requisição inválido")
+		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
+	payload.ID, _ = uuid.Parse(id)
 
 	task, err := h.service.UpdateTask(r.Context(), &payload)
 	if err != nil {
-		if err == ErrTaskNotFound {
+		if errors.Is(err, ErrTaskNotFound) {
 			http.Error(w, "task not found", http.StatusNotFound)
 			return
 		}
@@ -129,16 +119,10 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
 
-	var payload struct {
-		ID string `json:"id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.ID == "" {
-		http.Error(w, "id is required", http.StatusBadRequest)
-		return
-	}
+	id := chi.URLParam(r, "taskID")
 
-	if err := h.service.DeleteTask(r.Context(), payload.ID); err != nil {
-		if err == ErrTaskNotFound {
+	if err := h.service.DeleteByID(r.Context(), id); err != nil {
+		if errors.Is(err, ErrTaskNotFound) {
 			http.Error(w, "task not found", http.StatusNotFound)
 			return
 		}
