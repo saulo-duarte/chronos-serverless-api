@@ -32,6 +32,8 @@ func New(cfg RouterConfig) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middlewares.CorsMiddleware)
 
+	r.Mount("/users", user.Routes(cfg.UserHandler))
+
 	r.Group(func(r chi.Router) {
 		r.Use(auth.AuthMiddleware)
 
