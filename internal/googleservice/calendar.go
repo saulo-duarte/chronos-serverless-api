@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
+	"github.com/saulo-duarte/chronos-lambda/internal/util"
 	"golang.org/x/oauth2"
 	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/googleapi"
@@ -19,8 +20,8 @@ type TaskEventData struct {
 	ID          uuid.UUID
 	Name        string
 	Description string
-	StartDate   *time.Time
-	DueDate     *time.Time
+	StartDate   *util.LocalDateTime
+	DueDate     *util.LocalDateTime
 	EventID     string
 }
 
@@ -95,12 +96,12 @@ func (s *GoogleCalendarService) createCalendarEventFromTaskData(t *TaskEventData
 	if t.StartDate != nil || t.DueDate != nil {
 		var startTime, endTime time.Time
 		if t.StartDate != nil {
-			startTime = *t.StartDate
+			startTime = t.StartDate.Time
 		} else {
-			startTime = *t.DueDate
+			startTime = t.DueDate.Time
 		}
 		if t.DueDate != nil {
-			endTime = *t.DueDate
+			endTime = t.DueDate.Time
 		} else {
 			endTime = startTime.Add(1 * time.Hour)
 		}
