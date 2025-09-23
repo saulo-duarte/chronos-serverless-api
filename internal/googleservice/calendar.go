@@ -31,6 +31,11 @@ type GoogleCalendarService struct {
 
 func NewGoogleCalendarService(ctx context.Context, token *oauth2.Token) (*GoogleCalendarService, error) {
 	log := config.WithContext(ctx)
+	log.WithFields(map[string]interface{}{
+		"token_type":         token.TokenType,
+		"token_value_length": len(token.AccessToken),
+	}).Info("Criando novo cliente do Google Calendar")
+
 	tokenSource := oauth2.StaticTokenSource(token)
 	client := oauth2.NewClient(ctx, tokenSource)
 	srv, err := calendar.NewService(ctx, option.WithHTTPClient(client))
@@ -38,6 +43,7 @@ func NewGoogleCalendarService(ctx context.Context, token *oauth2.Token) (*Google
 		log.WithError(err).Error("Falha ao criar o cliente do Google Calendar")
 		return nil, fmt.Errorf("falha ao criar o cliente do Google Calendar: %w", err)
 	}
+	log.Info("Cliente do Google Calendar criado com sucesso")
 	return &GoogleCalendarService{
 		CalendarService: srv,
 	}, nil
@@ -45,22 +51,31 @@ func NewGoogleCalendarService(ctx context.Context, token *oauth2.Token) (*Google
 
 func (s *GoogleCalendarService) CreateEvent(ctx context.Context, t *TaskEventData) (string, error) {
 	log := config.WithContext(ctx)
+	log.WithField("task_data", t).Info("Tentando criar evento no Google Calendar com os seguintes dados da tarefa")
+
 	event := s.createCalendarEventFromTaskData(t)
+	log.WithField("calendar_event_data", event).Info("Evento do Google Calendar preparado para inserção")
+
 	newEvent, err := s.CalendarService.Events.Insert("primary", event).Do()
 	if err != nil {
 		log.WithError(err).WithField("task_id", t.ID).Error("Falha ao criar evento")
 		return "", fmt.Errorf("falha ao inserir evento: %w", err)
 	}
 	log.WithFields(map[string]interface{}{
-		"task_id":  t.ID,
-		"event_id": newEvent.Id,
+		"task_id":         t.ID,
+		"event_id":        newEvent.Id,
+		"event_html_link": newEvent.HtmlLink,
 	}).Info("Evento criado com sucesso no Google Calendar")
 	return newEvent.Id, nil
 }
 
 func (s *GoogleCalendarService) UpdateEvent(ctx context.Context, t *TaskEventData) error {
 	log := config.WithContext(ctx)
+	log.WithField("task_data", t).Info("Tentando atualizar evento no Google Calendar com os seguintes dados da tarefa")
+
 	event := s.createCalendarEventFromTaskData(t)
+	log.WithField("calendar_event_data", event).Info("Evento do Google Calendar preparado para atualização")
+
 	_, err := s.CalendarService.Events.Update("primary", t.EventID, event).Do()
 	if err != nil {
 		log.WithError(err).WithFields(map[string]interface{}{
@@ -78,6 +93,8 @@ func (s *GoogleCalendarService) UpdateEvent(ctx context.Context, t *TaskEventDat
 
 func (s *GoogleCalendarService) DeleteEvent(ctx context.Context, eventId string) error {
 	log := config.WithContext(ctx)
+	log.WithField("event_id", eventId).Info("Tentando deletar evento do Google Calendar")
+
 	err := s.CalendarService.Events.Delete("primary", eventId).Do()
 	if err != nil {
 		if e, ok := err.(*googleapi.Error); ok && e.Code == 404 {
