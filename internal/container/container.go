@@ -46,6 +46,7 @@ func New() *Container {
 		projectContainer.Service,
 		studyTopicContainer.Repo,
 		googleEventHandler,
+		userContainer.Repo,
 	)
 
 	return &Container{

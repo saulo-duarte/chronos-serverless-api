@@ -4,6 +4,7 @@ import "gorm.io/gorm"
 
 type UserContainer struct {
 	Handler *Handler
+	Repo    UserRepository
 }
 
 func NewUserContainer(db *gorm.DB) *UserContainer {
@@ -13,5 +14,6 @@ func NewUserContainer(db *gorm.DB) *UserContainer {
 
 	return &UserContainer{
 		Handler: handler,
+		Repo:    repo,
 	}
 }
