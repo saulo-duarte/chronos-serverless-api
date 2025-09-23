@@ -82,7 +82,7 @@ func (s *userService) HandleGoogleCallback(ctx context.Context, code string) (*U
 		log.WithField("user_id", user.ID).Info("Usuário atualizado com sucesso")
 	}
 
-	jwtToken, err := auth.GenerateJWTWithGoogleToken(user.ID.String(), user.Role, authResult.AccessToken, 24*time.Hour)
+	jwtToken, err := auth.GenerateJWT(user.ID.String(), user.Role, 24*time.Hour)
 	if err != nil {
 		log.WithError(err).Error("Falha ao gerar JWT para o usuário")
 		return nil, "", err
