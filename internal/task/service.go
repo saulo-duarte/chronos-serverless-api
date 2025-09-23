@@ -10,6 +10,7 @@ import (
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
 	"github.com/saulo-duarte/chronos-lambda/internal/project"
 	studytopic "github.com/saulo-duarte/chronos-lambda/internal/study_topic"
+	"github.com/saulo-duarte/chronos-lambda/internal/user"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,14 +34,16 @@ type TaskService interface {
 type taskService struct {
 	repo           TaskRepository
 	projectService project.ProjectService
+	userRepo       user.UserRepository
 	studyTopicRepo studytopic.StudyTopicRepository
 	eventHandler   EventHandler
 }
 
-func NewService(repo TaskRepository, projectService project.ProjectService, studyTopicRepo studytopic.StudyTopicRepository, eventHandler EventHandler) TaskService {
+func NewService(repo TaskRepository, projectService project.ProjectService, userRepo user.UserRepository, studyTopicRepo studytopic.StudyTopicRepository, eventHandler EventHandler) TaskService {
 	return &taskService{
 		repo:           repo,
 		projectService: projectService,
+		userRepo:       userRepo,
 		studyTopicRepo: studyTopicRepo,
 		eventHandler:   eventHandler,
 	}
@@ -53,16 +56,13 @@ func (s *taskService) CreateTask(ctx context.Context, t *Task) (*Task, error) {
 		log.WithError(err).Warn("Attempt to create task without authentication")
 		return nil, ErrUnauthorized
 	}
-
 	t.ID = uuid.New()
 	t.CreatedAt = time.Now()
 	t.UpdatedAt = time.Now()
 	t.UserID = uuid.MustParse(claims.UserID)
-
 	if t.Type == "PROJECT" && t.ProjectId == nil {
 		return nil, errors.New("projectId is required for PROJECT tasks")
 	}
-
 	if t.ProjectId != nil {
 		if _, err := s.projectService.GetProjectByID(ctx, t.ProjectId.String()); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
@@ -72,7 +72,6 @@ func (s *taskService) CreateTask(ctx context.Context, t *Task) (*Task, error) {
 			return nil, ErrProjectNotFound
 		}
 	}
-
 	if t.StudyTopicId != nil {
 		if _, err := s.studyTopicRepo.GetByID(t.StudyTopicId.String()); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
@@ -82,25 +81,27 @@ func (s *taskService) CreateTask(ctx context.Context, t *Task) (*Task, error) {
 			return nil, ErrStudyTopicNotFound
 		}
 	}
-
 	if err := s.repo.Create(t); err != nil {
 		log.WithError(err).Error("Failed to create task")
 		return nil, err
 	}
-
 	if t.StartDate != nil || t.DueDate != nil {
-		accessToken, err := auth.GetAccessTokenFromContext(ctx)
-		if err == nil && accessToken != "" {
-			if err := s.eventHandler.HandleTaskEvent(ctx, t, accessToken); err != nil {
-				log.WithError(err).WithField("task_id", t.ID).Error("Failed to create Google Calendar event")
-			} else {
-				if err := s.repo.Update(t); err != nil {
-					log.WithError(err).WithField("task_id", t.ID).Error("Failed to update task with Google Calendar event ID")
+		encryptedToken, err := s.userRepo.GetUserEncryptedGoogleCalendarAccessToken(claims.UserID)
+		if err == nil && encryptedToken != "" {
+			accessToken, decryptErr := config.Decrypt(encryptedToken)
+			if decryptErr == nil {
+				if err := s.eventHandler.HandleTaskEvent(ctx, t, accessToken); err != nil {
+					log.WithError(err).WithField("task_id", t.ID).Error("Failed to create Google Calendar event")
+				} else {
+					if err := s.repo.Update(t); err != nil {
+						log.WithError(err).WithField("task_id", t.ID).Error("Failed to update task with Google Calendar event ID")
+					}
 				}
+			} else {
+				log.WithError(decryptErr).WithField("user_id", claims.UserID).Error("Failed to decrypt Google Calendar access token")
 			}
 		}
 	}
-
 	log.WithField("task_id", t.ID).Info("Task created successfully")
 	return t, nil
 }
@@ -175,11 +176,16 @@ func (s *taskService) DeleteByID(ctx context.Context, id string) error {
 		return err
 	}
 	if task.GoogleCalendarEventId != "" {
-		accessToken, err := auth.GetAccessTokenFromContext(ctx)
-		if err == nil && accessToken != "" {
-			err := s.eventHandler.HandleTaskEvent(ctx, task, accessToken)
-			if err != nil {
-				log.WithError(err).WithField("task_id", task.ID).Error("Failed to delete Google Calendar event")
+		encryptedToken, err := s.userRepo.GetUserEncryptedGoogleCalendarAccessToken(claims.UserID)
+		if err == nil && encryptedToken != "" {
+			accessToken, decryptErr := config.Decrypt(encryptedToken)
+			if decryptErr == nil {
+				err := s.eventHandler.HandleTaskEvent(ctx, task, accessToken)
+				if err != nil {
+					log.WithError(err).WithField("task_id", task.ID).Error("Failed to delete Google Calendar event")
+				}
+			} else {
+				log.WithError(decryptErr).WithField("user_id", claims.UserID).Error("Failed to decrypt Google Calendar access token")
 			}
 		}
 	}
@@ -315,15 +321,20 @@ func (s *taskService) UpdateTask(ctx context.Context, t *Task) (*Task, error) {
 		return nil, err
 	}
 	if datesChanged || existing.GoogleCalendarEventId == "" || existing.Status == "DONE" {
-		accessToken, err := auth.GetAccessTokenFromContext(ctx)
-		if err == nil && accessToken != "" {
-			err := s.eventHandler.HandleTaskEvent(ctx, existing, accessToken)
-			if err != nil {
-				log.WithError(err).WithField("task_id", existing.ID).Error("Failed to handle Google Calendar event")
-			} else {
-				if err := s.repo.Update(existing); err != nil {
-					log.WithError(err).WithField("task_id", existing.ID).Error("Failed to update task with Google Calendar event ID")
+		encryptedToken, err := s.userRepo.GetUserEncryptedGoogleCalendarAccessToken(claims.UserID)
+		if err == nil && encryptedToken != "" {
+			accessToken, decryptErr := config.Decrypt(encryptedToken)
+			if decryptErr == nil {
+				err := s.eventHandler.HandleTaskEvent(ctx, existing, accessToken)
+				if err != nil {
+					log.WithError(err).WithField("task_id", existing.ID).Error("Failed to handle Google Calendar event")
+				} else {
+					if err := s.repo.Update(existing); err != nil {
+						log.WithError(err).WithField("task_id", existing.ID).Error("Failed to update task with Google Calendar event ID")
+					}
 				}
+			} else {
+				log.WithError(decryptErr).WithField("user_id", claims.UserID).Error("Failed to decrypt Google Calendar access token")
 			}
 		}
 	}
