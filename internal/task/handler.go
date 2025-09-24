@@ -135,3 +135,22 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		"message": "task deleted successfully",
 	})
 }
+
+func (h *Handler) ListTasksByStudyTopic(w http.ResponseWriter, r *http.Request) {
+	log := config.WithContext(r.Context())
+
+	studyTopicID := chi.URLParam(r, "studyTopicId")
+
+	tasks, err := h.service.FindAllByTopicID(r.Context(), studyTopicID)
+	if err != nil {
+		if errors.Is(err, ErrStudyTopicNotFound) {
+			http.Error(w, "study topic not found", http.StatusNotFound)
+			return
+		}
+		log.WithError(err).Error("Erro ao listar tasks por tópico de estudo")
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	config.JSON(w, http.StatusOK, tasks)
+}
