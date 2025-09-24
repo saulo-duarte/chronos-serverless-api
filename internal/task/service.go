@@ -312,7 +312,7 @@ func (s *taskService) UpdateTask(ctx context.Context, t *Task) (*Task, error) {
 	if t.Priority != "" {
 		existing.Priority = t.Priority
 	}
-	if t.DoneAt != nil && !t.DoneAt.IsZero() {
+	if !t.DoneAt.IsZero() {
 		existing.DoneAt = t.DoneAt
 	}
 	existing.UpdatedAt = time.Now()

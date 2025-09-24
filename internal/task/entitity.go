@@ -26,7 +26,7 @@ type Task struct {
 	StudyTopic            studytopic.StudyTopic `gorm:"foreignKey:StudyTopicId" json:"studyTopic"`
 	UserID                uuid.UUID             `gorm:"column:user_id;not null" json:"userId"`
 	User                  user.User             `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"-"`
-	DoneAt                *util.LocalDateTime   `json:"doneAt"`
+	DoneAt                time.Time             `json:"doneAt"`
 	CreatedAt             time.Time             `json:"createdAt"`
 	UpdatedAt             time.Time             `json:"updatedAt"`
 }
