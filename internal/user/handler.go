@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -21,7 +22,8 @@ func NewHandler(s UserService) *Handler {
 	return &Handler{service: s}
 }
 
-func newCookie(name, value string, maxAge int) *http.Cookie {
+// newCookie cria o cookie e loga informações para debug
+func newCookie(ctx context.Context, name, value string, maxAge int) *http.Cookie {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -29,10 +31,20 @@ func newCookie(name, value string, maxAge int) *http.Cookie {
 		HttpOnly: true,
 		MaxAge:   maxAge,
 	}
+
+	log := config.WithContext(ctx)
+	log.Infof("Criando cookie: %s=%s, MaxAge=%d, isProduction=%v", name, value, maxAge, isProduction)
+
 	if isProduction {
 		c.SameSite = http.SameSiteNoneMode
 		c.Secure = true
+		log.Infof("Cookie %s configurado como Secure=true, SameSite=None", name)
+	} else {
+		c.SameSite = http.SameSiteLaxMode
+		c.Secure = false
+		log.Infof("Cookie %s configurado como Secure=false, SameSite=Lax", name)
 	}
+
 	return c
 }
 
@@ -59,12 +71,15 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, newCookie(auth.JWT_COOKIE_NAME, jwtToken, int((24*time.Hour).Seconds())))
+	log.Infof("FRONTEND_URL=%s, Request Origin=%s", FRONTEND_URL, r.Header.Get("Origin"))
+
+	http.SetCookie(w, newCookie(r.Context(), auth.JWT_COOKIE_NAME, jwtToken, int((24*time.Hour).Seconds())))
 	http.Redirect(w, r, FRONTEND_URL, http.StatusFound)
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
+	log.Infof("Login request Origin=%s", r.Header.Get("Origin"))
 
 	var payload struct {
 		ProviderID string `json:"provider_id"`
@@ -89,8 +104,9 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, newCookie(auth.JWT_COOKIE_NAME, jwtToken, int((24*time.Hour).Seconds())))
-	http.SetCookie(w, newCookie(auth.REFRESH_TOKEN_COOKIE_NAME, refreshToken, int((14*24*time.Hour).Seconds())))
+	// Setando cookies com logs
+	http.SetCookie(w, newCookie(r.Context(), auth.JWT_COOKIE_NAME, jwtToken, int((24*time.Hour).Seconds())))
+	http.SetCookie(w, newCookie(r.Context(), auth.REFRESH_TOKEN_COOKIE_NAME, refreshToken, int((14*24*time.Hour).Seconds())))
 
 	config.JSON(w, http.StatusOK, map[string]any{
 		"user":    user.ToResponse(),
@@ -100,6 +116,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
+	log.Infof("RefreshToken request Origin=%s", r.Header.Get("Origin"))
 
 	cookie, err := r.Cookie(auth.REFRESH_TOKEN_COOKIE_NAME)
 	if err != nil {
@@ -118,7 +135,7 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, newCookie(auth.JWT_COOKIE_NAME, newJWT, int((24*time.Hour).Seconds())))
+	http.SetCookie(w, newCookie(r.Context(), auth.JWT_COOKIE_NAME, newJWT, int((24*time.Hour).Seconds())))
 
 	config.JSON(w, http.StatusOK, map[string]string{
 		"message": "token refreshed successfully",
