@@ -37,6 +37,7 @@ resource "aws_lambda_function" "go_lambda" {
       GOOGLE_CLIENT_ID     = data.aws_ssm_parameter.google_client_id.value
       GOOGLE_CLIENT_SECRET = data.aws_ssm_parameter.google_client_secret.value
       GOOGLE_REDIRECT_URL  = data.aws_ssm_parameter.google_redirect_url.value
+      FRONTEND_URL         = data.aws_ssm_parameter.frontend_url.value
       LOCAL_TEST           = "false"
     }
   }
@@ -74,4 +75,8 @@ data "aws_ssm_parameter" "google_client_secret" {
 
 data "aws_ssm_parameter" "google_redirect_url" {
   name = "/go-demo/GOOGLE_REDIRECT_URL"
+}
+
+data "aws_ssm_parameter" "frontend_url" {
+  name = "/chronos-api/FRONTEND_URL"
 }

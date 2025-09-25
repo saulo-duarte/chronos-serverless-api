@@ -3,13 +3,14 @@ package user
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/saulo-duarte/chronos-lambda/internal/auth"
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
 )
 
-const FRONTEND_URL = "http://localhost:3001"
+var FRONTEND_URL = os.Getenv("FRONTEND_URL")
 
 type Handler struct {
 	service UserService
