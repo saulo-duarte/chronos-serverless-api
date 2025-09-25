@@ -11,6 +11,7 @@ import (
 )
 
 var FRONTEND_URL = os.Getenv("FRONTEND_URL")
+var isProduction = os.Getenv("ENV") == "" || os.Getenv("ENV") == "production"
 
 type Handler struct {
 	service UserService
@@ -18,6 +19,21 @@ type Handler struct {
 
 func NewHandler(s UserService) *Handler {
 	return &Handler{service: s}
+}
+
+func newCookie(name, value string, maxAge int) *http.Cookie {
+	c := &http.Cookie{
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   maxAge,
+	}
+	if isProduction {
+		c.SameSite = http.SameSiteNoneMode
+		c.Secure = true
+	}
+	return c
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -43,14 +59,7 @@ func (h *Handler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.JWT_COOKIE_NAME,
-		Value:    jwtToken,
-		Path:     "/",
-		HttpOnly: true,
-		MaxAge:   int((24 * time.Hour).Seconds()),
-	})
-
+	http.SetCookie(w, newCookie(auth.JWT_COOKIE_NAME, jwtToken, int((24*time.Hour).Seconds())))
 	http.Redirect(w, r, FRONTEND_URL, http.StatusFound)
 }
 
@@ -80,20 +89,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.JWT_COOKIE_NAME,
-		Value:    jwtToken,
-		Path:     "/",
-		HttpOnly: true,
-		MaxAge:   int((24 * time.Hour).Seconds()),
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.REFRESH_TOKEN_COOKIE_NAME,
-		Value:    refreshToken,
-		Path:     "/",
-		HttpOnly: true,
-		MaxAge:   int((14 * 24 * time.Hour).Seconds()),
-	})
+	http.SetCookie(w, newCookie(auth.JWT_COOKIE_NAME, jwtToken, int((24*time.Hour).Seconds())))
+	http.SetCookie(w, newCookie(auth.REFRESH_TOKEN_COOKIE_NAME, refreshToken, int((14*24*time.Hour).Seconds())))
 
 	config.JSON(w, http.StatusOK, map[string]any{
 		"user":    user.ToResponse(),
@@ -121,13 +118,7 @@ func (h *Handler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.JWT_COOKIE_NAME,
-		Value:    newJWT,
-		Path:     "/",
-		HttpOnly: true,
-		MaxAge:   int((24 * time.Hour).Seconds()),
-	})
+	http.SetCookie(w, newCookie(auth.JWT_COOKIE_NAME, newJWT, int((24*time.Hour).Seconds())))
 
 	config.JSON(w, http.StatusOK, map[string]string{
 		"message": "token refreshed successfully",
