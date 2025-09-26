@@ -7,9 +7,7 @@ import (
 func Routes(h *Handler) chi.Router {
 	r := chi.NewRouter()
 
-	r.Get("/register", h.Register)
-	r.Get("/google/callback", h.GoogleCallback)
-	r.Post("/login", h.Login)
+	r.Post("/login", h.GoogleLogin)
 	r.Post("/refresh", h.RefreshToken)
 
 	return r
