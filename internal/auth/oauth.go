@@ -33,26 +33,54 @@ type AuthResult struct {
 	RefreshToken string
 }
 
+type CallbackPayload struct {
+	Code string `json:"code"`
+}
+
 func InitOauth() {
 	GoogleOauthConfig = &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
 		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 		Scopes:       []string{"https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"},
 		Endpoint:     google.Endpoint,
 	}
 }
 
-func GetGoogleAuthURL(state string) string {
-	return GoogleOauthConfig.AuthCodeURL(state)
+func GoogleCodeHandler(w http.ResponseWriter, r *http.Request) {
+	log := config.WithContext(r.Context())
+
+	var payload CallbackPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		log.WithError(err).Error("Payload inválido recebido do frontend")
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if payload.Code == "" {
+		log.Error("Code não enviado pelo frontend")
+		http.Error(w, "code is required", http.StatusBadRequest)
+		return
+	}
+
+	authResult, err := HandleGoogleCode(r.Context(), payload.Code)
+	if err != nil {
+		log.WithError(err).Error("Erro ao autenticar com Google")
+		http.Error(w, "failed to authenticate", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]any{
+		"user":    authResult,
+		"message": "Google login successful",
+	})
 }
 
-func HandleGoogleCallback(ctx context.Context, code string) (*AuthResult, error) {
+func HandleGoogleCode(ctx context.Context, code string) (*AuthResult, error) {
 	log := config.WithContext(ctx)
 
 	token, err := GoogleOauthConfig.Exchange(ctx, code)
 	if err != nil {
-		log.WithError(err).Error("Falha ao trocar o código de autorização por um token")
+		log.WithError(err).Error("Falha ao trocar o código por token")
 		return nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
 
@@ -61,10 +89,6 @@ func HandleGoogleCallback(ctx context.Context, code string) (*AuthResult, error)
 		log.WithError(err).Error("Falha ao obter informações do usuário do Google")
 		return nil, fmt.Errorf("failed to get user info: %w", err)
 	}
-	log.WithFields(logrus.Fields{
-		"email":   userInfo.Email,
-		"user_id": userInfo.ID,
-	}).Info("Informações do usuário obtidas com sucesso")
 
 	encryptedAccessToken := ""
 	encryptedRefreshToken := ""
@@ -80,6 +104,11 @@ func HandleGoogleCallback(ctx context.Context, code string) (*AuthResult, error)
 			encryptedRefreshToken = enc
 		}
 	}
+
+	log.WithFields(logrus.Fields{
+		"email":   userInfo.Email,
+		"user_id": userInfo.ID,
+	}).Info("Usuário autenticado com sucesso via Google")
 
 	return &AuthResult{
 		ProviderID:   userInfo.ID,
