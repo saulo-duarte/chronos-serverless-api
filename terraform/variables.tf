@@ -31,9 +31,3 @@ variable "terraform_backend_bucket" {
   description = "S3 bucket for Terraform state backend"
   default     = ""
 }
-
-variable "root_domain" {
-  type        = string
-  description = "O domínio raiz (ex: chronosapp.site) que será usado para o CNAME da API."
-  default     = "chronosapp.site"
-}
