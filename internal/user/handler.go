@@ -31,6 +31,7 @@ func newCookie(name, value string, maxAge int) *http.Cookie {
 		MaxAge:   maxAge,
 		SameSite: http.SameSiteNoneMode,
 		Secure:   secure,
+		Domain:   "",
 	}
 	return c
 }
