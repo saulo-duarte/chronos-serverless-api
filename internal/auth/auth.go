@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -18,12 +19,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr, err := extractToken(r)
 		if err != nil {
+			log.Printf("[AuthMiddleware] Token não encntrado: %v", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
 		claims, err := ValidateJWT(tokenStr)
 		if err != nil {
+			log.Printf("[AuthMiddleware] Falha ao validar JWT: %v", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -43,6 +46,7 @@ func extractToken(r *http.Request) (string, error) {
 		if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
 			return parts[1], nil
 		}
+		return "", errors.New("invalid authorization header format")
 	}
 
 	cookie, err := r.Cookie("jwt")
