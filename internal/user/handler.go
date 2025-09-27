@@ -29,7 +29,7 @@ func newCookie(name, value string, maxAge int) *http.Cookie {
 		Path:     "/",
 		HttpOnly: true,
 		MaxAge:   maxAge,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 		Secure:   secure,
 	}
 	return c
