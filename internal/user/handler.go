@@ -40,6 +40,9 @@ func newCookie(name, value string, maxAge int) *http.Cookie {
 func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
 
+	// LOG DE DEBUG ADICIONADO AQUI
+	log.WithField("API_DOMAIN_CONFIG", API_DOMAIN).Info("Verificando a variável API_DOMAIN antes de setar o cookie")
+
 	var payload auth.AuthResult
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		log.WithError(err).Error("Corpo da requisição inválido")
