@@ -3,7 +3,6 @@ package user
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +15,7 @@ var (
 )
 
 type UserService interface {
-	LoginWithGoogleCode(ctx context.Context, code string) (*User, string, string, error)
+	LoginWithGoogleUser(ctx context.Context, authResult *auth.AuthResult) (*User, string, string, error)
 	Login(ctx context.Context, providerID string) (*User, string, string, error)
 	RefreshToken(ctx context.Context, tokenString string) (string, error)
 }
@@ -29,17 +28,11 @@ func NewService(repo UserRepository) UserService {
 	return &userService{repo: repo}
 }
 
-func (s *userService) LoginWithGoogleCode(ctx context.Context, code string) (*User, string, string, error) {
+func (s *userService) LoginWithGoogleUser(ctx context.Context, authResult *auth.AuthResult) (*User, string, string, error) {
 	log := config.WithContext(ctx)
 
-	authResult, err := auth.HandleGoogleCode(ctx, code)
-	if err != nil {
-		log.WithError(err).Error("Falha ao autenticar com Google")
-		return nil, "", "", err
-	}
-
-	providerID := strings.TrimPrefix(authResult.ProviderID, "google-")
-	log.WithField("provider_id", providerID).Info("Código do Google processado com sucesso")
+	providerID := authResult.ProviderID
+	log.WithField("provider_id", providerID).Info("Payload do Google recebido com sucesso")
 
 	user, err := s.repo.GetByProviderID(providerID)
 	if err != nil && !errors.Is(err, ErrUserNotFound) {

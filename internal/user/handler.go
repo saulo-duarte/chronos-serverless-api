@@ -11,7 +11,7 @@ import (
 )
 
 var FRONTEND_URL = os.Getenv("FRONTEND_URL")
-var isProduction = os.Getenv("ENV") == "" || os.Getenv("ENV") == "production"
+var ENV = os.Getenv("ENV")
 
 type Handler struct {
 	service UserService
@@ -22,16 +22,15 @@ func NewHandler(s UserService) *Handler {
 }
 
 func newCookie(name, value string, maxAge int) *http.Cookie {
+	secure := ENV == "prod"
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     "/",
 		HttpOnly: true,
 		MaxAge:   maxAge,
-	}
-	if isProduction {
-		c.SameSite = http.SameSiteNoneMode
-		c.Secure = true
+		SameSite: http.SameSiteLaxMode,
+		Secure:   secure,
 	}
 	return c
 }
@@ -39,28 +38,30 @@ func newCookie(name, value string, maxAge int) *http.Cookie {
 func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
 	log := config.WithContext(r.Context())
 
-	var payload struct {
-		Code string `json:"code"`
-	}
+	var payload auth.AuthResult
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		log.WithError(err).Error("Corpo da requisição inválido")
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
-	if payload.Code == "" {
-		http.Error(w, "code is required", http.StatusBadRequest)
+
+	if payload.ProviderID == "" || payload.Email == "" {
+		http.Error(w, "providerID and email are required", http.StatusBadRequest)
 		return
 	}
 
-	user, jwtToken, refreshToken, err := h.service.LoginWithGoogleCode(r.Context(), payload.Code)
+	user, jwtToken, refreshToken, err := h.service.LoginWithGoogleUser(r.Context(), &payload)
 	if err != nil {
 		log.WithError(err).Error("Falha no login via Google")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
-	http.SetCookie(w, newCookie(auth.JWT_COOKIE_NAME, jwtToken, int((24*time.Hour).Seconds())))
-	http.SetCookie(w, newCookie(auth.REFRESH_TOKEN_COOKIE_NAME, refreshToken, int((14*24*time.Hour).Seconds())))
+	jwtCookie := newCookie(auth.JWT_COOKIE_NAME, jwtToken, int((24 * time.Hour).Seconds()))
+	refreshCookie := newCookie(auth.REFRESH_TOKEN_COOKIE_NAME, refreshToken, int((14 * 24 * time.Hour).Seconds()))
+
+	http.SetCookie(w, jwtCookie)
+	http.SetCookie(w, refreshCookie)
 
 	config.JSON(w, http.StatusOK, map[string]any{
 		"user":    user.ToResponse(),
