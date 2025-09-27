@@ -2,6 +2,14 @@
 resource "aws_apigatewayv2_api" "lambda_api_v2" {
   name          = "${var.lambda_function_name}-http-api"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins     = [data.aws_ssm_parameter.frontend_url.value]
+    allow_methods     = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers     = ["Content-Type", "Authorization", "Cookie"]
+    allow_credentials = true
+    max_age           = 3600
+  }
 }
 
 resource "aws_apigatewayv2_integration" "lambda_integration_v2" {
