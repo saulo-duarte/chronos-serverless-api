@@ -12,6 +12,7 @@ import (
 
 var FRONTEND_URL = os.Getenv("FRONTEND_URL")
 var ENV = os.Getenv("ENV")
+var API_DOMAIN = os.Getenv("API_DOMAIN")
 
 type Handler struct {
 	service UserService
@@ -31,7 +32,7 @@ func newCookie(name, value string, maxAge int) *http.Cookie {
 		MaxAge:   maxAge,
 		SameSite: http.SameSiteNoneMode,
 		Secure:   secure,
-		Domain:   "",
+		Domain:   API_DOMAIN,
 	}
 	return c
 }
