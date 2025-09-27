@@ -19,7 +19,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr, err := extractToken(r)
 		if err != nil {
-			log.Printf("[AuthMiddleware] Token não encntrado: %v", err)
+			log.Printf("[AuthMiddleware] Token não encontrado: %v", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -40,6 +40,11 @@ func AuthMiddleware(next http.Handler) http.Handler {
 }
 
 func extractToken(r *http.Request) (string, error) {
+	cookie, err := r.Cookie("jwt")
+	if err == nil && cookie.Value != "" {
+		return cookie.Value, nil
+	}
+
 	authHeader := r.Header.Get("Authorization")
 	if authHeader != "" {
 		parts := strings.Split(authHeader, " ")
@@ -49,10 +54,5 @@ func extractToken(r *http.Request) (string, error) {
 		return "", errors.New("invalid authorization header format")
 	}
 
-	cookie, err := r.Cookie("jwt")
-	if err == nil && cookie.Value != "" {
-		return cookie.Value, nil
-	}
-
-	return "", errors.New("authorization token not found in header or cookie")
+	return "", errors.New("authorization token not found in cookie or header")
 }
