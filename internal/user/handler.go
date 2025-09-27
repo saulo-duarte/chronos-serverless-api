@@ -23,6 +23,8 @@ func NewHandler(s UserService) *Handler {
 
 func newCookie(name, value string, maxAge int) *http.Cookie {
 	secure := ENV == "prod"
+	apiDomain := "o1uzelr7wa.execute-api.sa-east-1.amazonaws.com"
+
 	c := &http.Cookie{
 		Name:     name,
 		Value:    value,
@@ -31,7 +33,7 @@ func newCookie(name, value string, maxAge int) *http.Cookie {
 		MaxAge:   maxAge,
 		SameSite: http.SameSiteNoneMode,
 		Secure:   secure,
-		Domain:   "",
+		Domain:   apiDomain,
 	}
 	return c
 }
