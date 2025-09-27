@@ -1,10 +1,9 @@
-# HTTP API v2
 resource "aws_apigatewayv2_api" "lambda_api_v2" {
   name          = "${var.lambda_function_name}-http-api"
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins     = [data.aws_ssm_parameter.frontend_url.value]
+    allow_origins     = [data.aws_ssm_parameter.frontend_url.value, "https://${var.root_domain}"]
     allow_methods     = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     allow_headers     = ["Content-Type", "Authorization", "Cookie"]
     allow_credentials = true
@@ -37,4 +36,22 @@ resource "aws_lambda_permission" "api_gateway_v2" {
   function_name = aws_lambda_function.go_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.lambda_api_v2.execution_arn}/*/*"
+}
+
+resource "aws_apigatewayv2_domain_name" "api_custom_domain" {
+  domain_name = local.api_domain_name
+
+  domain_name_configuration {
+    certificate_arn = aws_acm_certificate_validation.api_cert_validation.certificate_arn
+    endpoint_type   = "REGIONAL"
+    security_policy = "TLS_1_2"
+  }
+
+  depends_on = [aws_acm_certificate_validation.api_cert_validation]
+}
+
+resource "aws_apigatewayv2_api_mapping" "api_mapping" {
+  api_id      = aws_apigatewayv2_api.lambda_api_v2.id
+  domain_name = aws_apigatewayv2_domain_name.api_custom_domain.id
+  stage       = aws_apigatewayv2_stage.lambda_stage_v2.id
 }

@@ -40,10 +40,10 @@ resource "aws_lambda_function" "go_lambda" {
       FRONTEND_URL         = data.aws_ssm_parameter.frontend_url.value
       LOCAL_TEST           = "false"
       ENV                  = "prod"
+      API_DOMAIN           = local.api_domain_name
     }
   }
 }
-
 resource "aws_ssm_parameter" "lambda_version" {
   name  = var.parameter_store_key
   type  = "String"
@@ -80,4 +80,8 @@ data "aws_ssm_parameter" "google_redirect_url" {
 
 data "aws_ssm_parameter" "frontend_url" {
   name = "/chronos-api/FRONTEND_URL"
+}
+
+locals {
+  api_domain_name = "api.${var.root_domain}"
 }
