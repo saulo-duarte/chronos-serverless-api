@@ -15,11 +15,10 @@ func NewTaskContainer(
 	db *gorm.DB,
 	projectService project.ProjectService,
 	studyTopicRepo studytopic.StudyTopicRepository,
-	eventHandler EventHandler,
 	userRepository user.UserRepository,
 ) *TaskContainer {
 	repo := NewRepository(db)
-	service := NewService(repo, projectService, userRepository, studyTopicRepo, eventHandler)
+	service := NewService(repo, projectService, userRepository, studyTopicRepo)
 	handler := NewHandler(service)
 
 	return &TaskContainer{

@@ -7,7 +7,6 @@ import (
 
 	"github.com/saulo-duarte/chronos-lambda/internal/auth"
 	"github.com/saulo-duarte/chronos-lambda/internal/config"
-	"github.com/saulo-duarte/chronos-lambda/internal/googleservice"
 	"github.com/saulo-duarte/chronos-lambda/internal/project"
 	studysubject "github.com/saulo-duarte/chronos-lambda/internal/study_subject"
 	studytopic "github.com/saulo-duarte/chronos-lambda/internal/study_topic"
@@ -27,7 +26,6 @@ func New() *Container {
 	config.Init()
 	auth.Init()
 	config.InitCrypto()
-	auth.InitOauth()
 
 	dsn := os.Getenv("DATABASE_DSN")
 	if err := config.Connect(context.Background(), dsn); err != nil {
@@ -39,13 +37,10 @@ func New() *Container {
 	studySubjectContainer := studysubject.NewStudySubjectContainer(config.DB)
 	studyTopicContainer := studytopic.NewStudyTopicContainer(config.DB)
 
-	googleEventHandler := googleservice.NewGoogleEventHandler(auth.GoogleOauthConfig)
-
 	taskContainer := task.NewTaskContainer(
 		config.DB,
 		projectContainer.Service,
 		studyTopicContainer.Repo,
-		googleEventHandler,
 		userContainer.Repo,
 	)
 
